@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from config import API_KEYS, MODEL_NAME, GENERATION_CONFIG, DEFAULT_BOT_SETTINGS
+from config import API_KEYS, API_BASE_URL, MODEL_NAME, GENERATION_CONFIG, DEFAULT_BOT_SETTINGS
 from database_manager import DatabaseManager
 from bot import DcinsideBot
 from gpt_api_manager import GptApiManager
@@ -37,7 +37,7 @@ async def run_gallery_bot(api_key, bot_settings):
         await asyncio.gather(*[db_manager.connect() for db_manager in db_managers.values()])
 
         # GptApiManager 객체 생성 (ChatGPT 사용)
-        gpt_api_manager = GptApiManager(api_key=api_key)
+        gpt_api_manager = GptApiManager(api_key=api_key, base_url=API_BASE_URL)
 
         # DcinsideBot 객체 생성
         bot = DcinsideBot(

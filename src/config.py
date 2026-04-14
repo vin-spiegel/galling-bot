@@ -7,6 +7,9 @@ load_dotenv()
 # 환경 변수에서 API 키를 불러오고, 쉼표로 구분된 값을 리스트로 변환
 API_KEYS = os.getenv('API_KEYS').split(',') if os.getenv('API_KEYS') else None
 
+# API Base URL (OpenRouter 등 다른 프로바이더 사용 시 설정)
+API_BASE_URL = os.getenv('API_BASE_URL') or None
+
 # 모델 설정
 MODEL_NAME = os.getenv('MODEL_NAME', 'gpt-4')  # 기본값을 'gpt-4'로 설정
 GEN_TEMPERATURE = float(os.getenv('GEN_TEMPERATURE', '0.7'))

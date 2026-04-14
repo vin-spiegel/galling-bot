@@ -17,6 +17,9 @@ galling-bot/
 .idea/
 .vscode/
 
+# Environment variables
+.env
+
 # System files
 .DS_Store
 Thumbs.db
