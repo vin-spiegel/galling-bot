@@ -1,5 +1,4 @@
 import logging
-import re
 import asyncio
 import time
 from collections import Counter
@@ -79,47 +78,61 @@ class DcinsideBot:
 
         return sanitize_text(content)
 
-    async def write_article(self, trending_topics, memory_data=None):
+    async def write_article(self, trending_topics, memory_data=None, max_retries=3):
         if not self.write_article_enabled:
             return None
 
         top_trending_topics = [topic[0] for topic in trending_topics.most_common(3)]
 
-        prompt = f"""
+        # 1단계: 제목 생성
+        title_prompt = f"""
         {self.persona} 페르소나 규칙 꼭 지키기.
 
-        {self.board_id} 갤러리에 어울리는 흥미로운 글 제목과 내용을 한 번에 작성해줘.
-        최근 유행하는 토픽을 참고하여 제목과 글을 구성하고, 페르소나에 맞춰 작성해줘.
+        {self.board_id} 갤러리에 어울리는 흥미로운 글 제목을 하나만 작성해줘.
+        제목 텍스트만 출력해. 다른 설명이나 형식 없이 제목만 작성해.
 
-        최근 {self.board_id} 갤러리에서 유행하는 토픽은 다음과 같습니다:
+        최근 {self.board_id} 갤러리에서 유행하는 토픽:
         {trending_topics}
 
-        특히 다음 토픽들을 중심으로 글 내용을 구성해줘:
+        특히 다음 토픽들을 참고해줘:
         {', '.join(top_trending_topics)}
-
-        갤러리의 최근 정보를 참고하여 글 내용을 더욱 풍성하게 만들어줘:
-        {memory_data}
-        제목과 내용은 아래 형식으로 작성해줘:
-        제목: [제목 텍스트]
-        내용: [내용 텍스트]
         """
-        while True:
+
+        for attempt in range(max_retries):
             try:
-                content = await self.gpt_api_manager.generate_content(prompt)
-                
-                if not content:
-                    raise ValueError("생성된 콘텐츠가 비어있습니다.")
+                logging.info(f"[글 작성] 제목 생성 요청 (시도 {attempt + 1}/{max_retries})")
+                title_raw = await self.gpt_api_manager.generate_content(title_prompt)
 
-                # 제목과 내용을 분리
-                title_match = re.search(r"제목:\s*(.*)", content)
-                content_match = re.search(r"내용:\s*(.*)", content)
+                if not title_raw:
+                    raise ValueError("제목 생성 결과가 비어있습니다.")
 
-                if not title_match or not content_match:
-                    raise ValueError("제목 또는 내용을 찾을 수 없습니다.")
+                title = sanitize_text(title_raw).strip()
+                logging.info(f"[글 작성] 제목 생성 완료: {title}")
 
-                title = sanitize_text(title_match.group(1))
-                content = sanitize_text(content_match.group(1))
+                # 2단계: 내용 생성
+                content_prompt = f"""
+                {self.persona} 페르소나 규칙 꼭 지키기.
 
+                다음 제목으로 {self.board_id} 갤러리에 올릴 글 내용을 작성해줘.
+                글 내용 텍스트만 출력해. 다른 설명이나 형식 없이 본문만 작성해.
+
+                제목: {title}
+
+                갤러리의 최근 정보를 참고해줘:
+                {memory_data}
+                """
+
+                logging.info(f"[글 작성] 내용 생성 요청 (시도 {attempt + 1}/{max_retries})")
+                content_raw = await self.gpt_api_manager.generate_content(content_prompt)
+
+                if not content_raw:
+                    raise ValueError("내용 생성 결과가 비어있습니다.")
+
+                content = sanitize_text(content_raw).strip()
+                logging.info(f"[글 작성] 내용 생성 완료 ({len(content)}자)")
+
+                # 3단계: DC에 글 작성
+                logging.info(f"[글 작성] DC 업로드 중... 제목: {title}")
                 doc_id = await self.api_manager.write_document(
                     title=title,
                     content=content
@@ -132,12 +145,15 @@ class DcinsideBot:
                     board_id=self.board_id
                 )
 
+                logging.info(f"[글 작성] 성공 https://gall.dcinside.com/board/view/?id={self.board_id}&no={doc_id}")
                 return doc_id, title
             except Exception as e:
-                logging.error(f"글 작성 실패: {e}")
-                await asyncio.sleep(self.settings['article_interval'])
+                logging.error(f"[글 작성] 실패 (시도 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(self.settings['article_interval'])
+        return None
 
-    async def write_comment(self, document_id, article_title):
+    async def write_comment(self, document_id, article_title, max_retries=3):
         if not self.write_comment_enabled:
             return None
 
@@ -145,25 +161,25 @@ class DcinsideBot:
         {self.persona}
 
         다음 글에 대한 댓글을 페르소나에 충실하게 작성해줘.
+        댓글 텍스트만 출력해. 다른 설명이나 형식 없이 댓글 내용만 작성해.
 
         글 제목: {article_title}
-
-        댓글은 아래 형식으로 작성해줘:
-        댓글: [댓글 텍스트]
         """
-        while True:
+        for attempt in range(max_retries):
             try:
+                logging.info(f"[댓글] 생성 요청 (시도 {attempt + 1}/{max_retries}) - 대상 글: {article_title}")
                 content = await self.gpt_api_manager.generate_content(prompt)
 
                 if not content:
                     raise ValueError("생성된 콘텐츠가 비어있습니다.")
 
-                # "댓글:"으로 시작하는 텍스트를 파싱하여 추출
-                comment_match = re.search(r"댓글:\s*(.*)", content)
-                if not comment_match:
-                    raise ValueError("댓글 텍스트를 찾을 수 없습니다.")
+                comment_content = sanitize_text(content).strip()
 
-                comment_content = sanitize_text(comment_match.group(1)).strip()
+                if not comment_content:
+                    raise ValueError("댓글 내용이 비어있습니다.")
+
+                logging.info(f"[댓글] 생성 완료 ({len(comment_content)}자): {comment_content[:50]}...")
+                logging.info(f"[댓글] DC 업로드 중... (doc_id: {document_id})")
 
                 comm_id = await self.api_manager.write_comment(
                     document_id=document_id,
@@ -179,7 +195,10 @@ class DcinsideBot:
                     board_id=self.board_id
                 )
 
+                logging.info(f"[댓글] 성공 https://gall.dcinside.com/board/view/?id={self.board_id}&no={document_id}")
                 return True
             except Exception as e:
-                logging.error(f"댓글 작성 실패: {e}")
-                await asyncio.sleep(5)
+                logging.error(f"[댓글] 실패 (시도 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(5)
+        return False

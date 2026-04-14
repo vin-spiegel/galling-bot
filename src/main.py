@@ -84,12 +84,11 @@ async def run_gallery_bot(api_key, bot_settings):
 
 async def main():
     current_api_key_index = 0
-    yjrs_bot = DEFAULT_BOT_SETTINGS.copy()
-    yjrs_bot.update({'board_id': 'yjrs'})
+    bot_settings = DEFAULT_BOT_SETTINGS.copy()
 
     while True:
         current_api_key = API_KEYS[current_api_key_index]
-        await run_gallery_bot(current_api_key, yjrs_bot)
+        await run_gallery_bot(current_api_key, bot_settings)
         await asyncio.sleep(900)  # 15분 대기
         current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
 

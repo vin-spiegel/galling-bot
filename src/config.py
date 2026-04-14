@@ -39,5 +39,6 @@ DEFAULT_BOT_SETTINGS = {
     'gallery_record_interval': int(os.getenv('BOT_GALLERY_RECORD_INTERVAL', '600')),
     'username': os.getenv('BOT_USERNAME'),
     'password': os.getenv('BOT_PASSWORD'),
-    'persona': os.getenv('BOT_PERSONA')
+    'persona': os.getenv('BOT_PERSONA'),
+    'board_id': os.getenv('BOT_BOARD_ID', 'yjrs')
 }
