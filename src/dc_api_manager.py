@@ -1,5 +1,7 @@
 import logging
 import random
+import aiohttp
+import lxml.html
 import dc_api
 
 class DcApiManager:
@@ -91,6 +93,77 @@ class DcApiManager:
         except Exception as e:
             logging.error(f"댓글 작성 실패 ({document_id}): {type(e).__name__}: {e}")
             return None
+
+    async def get_document_contents(self, document_id):
+        """문서 본문 텍스트를 가져옵니다."""
+        try:
+            doc = await self.api.document(board_id=self.board_id, document_id=document_id)
+            if doc and doc.contents:
+                return doc.contents
+        except Exception as e:
+            logging.error(f"문서 본문 조회 실패 ({document_id}): {e}")
+        return None
+
+    async def get_gallery_info(self):
+        """갤러리 이름/설명/키워드 메타데이터 조회"""
+        url = f"https://gall.dcinside.com/board/lists/?id={self.board_id}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36"
+        }
+        try:
+            async with aiohttp.ClientSession(headers=headers) as session:
+                async with session.get(url) as res:
+                    html = await res.text()
+            parsed = lxml.html.fromstring(html)
+
+            def get(xpath):
+                r = parsed.xpath(xpath)
+                return r[0].strip() if r else ""
+
+            title = get("//meta[@property='og:title']/@content") or get("//title/text()")
+            # "여장 갤러리 - 커뮤니티 포털 디시인사이드" → "여장 갤러리"
+            if " - " in title:
+                title = title.split(" - ")[0].strip()
+
+            return {
+                "id": self.board_id,
+                "name": title,
+                "description": get("//meta[@name='description']/@content"),
+                "keywords": get("//meta[@name='keywords']/@content"),
+            }
+        except Exception as e:
+            logging.error(f"갤러리 정보 조회 실패: {e}")
+            return {"id": self.board_id, "name": "", "description": "", "keywords": ""}
+
+    async def get_articles(self, num=20, recommend=False, with_contents=False):
+        """
+        글 목록을 가져옵니다.
+
+        :param num: 가져올 글 수
+        :param recommend: True면 개념글만
+        :param with_contents: True면 본문까지 함께 조회 (느림)
+        :return: list of dict {id, title, author, contents?}
+        """
+        try:
+            indexes = [a async for a in self.api.board(
+                board_id=self.board_id, num=num, recommend=recommend
+            )]
+        except Exception as e:
+            logging.error(f"글 목록 조회 실패: {e}")
+            return []
+
+        results = []
+        for idx in indexes:
+            item = {"id": idx.id, "title": idx.title, "author": idx.author}
+            if with_contents:
+                try:
+                    doc = await self.api.document(board_id=self.board_id, document_id=idx.id)
+                    item["contents"] = doc.contents if doc and doc.contents else ""
+                except Exception as e:
+                    logging.error(f"본문 조회 실패 ({idx.id}): {e}")
+                    item["contents"] = ""
+            results.append(item)
+        return results
 
     async def get_random_document_info(self):
         """

@@ -18,20 +18,22 @@ class GptApiManager:
         self.model_name = model_name
         self.generation_config = generation_config or {}
 
-    async def generate_content(self, prompt):
+    async def generate_content(self, prompt, system=None):
         """
-        주어진 프롬프트를 사용하여 콘텐츠를 생성합니다.
+        주어진 프롬프트로 콘텐츠를 생성합니다.
 
-        :param prompt: 콘텐츠 생성을 위한 프롬프트
+        :param prompt: user 메시지
+        :param system: system 메시지 (페르소나, 컨텍스트 등). 없으면 기본값 사용.
         :return: 생성된 콘텐츠 문자열, 실패 시 None
         """
         try:
+            messages = [
+                {"role": "system", "content": system or "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ]
             response = await self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=messages,
                 **self.generation_config
             )
 

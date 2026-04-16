@@ -61,6 +61,7 @@ async def run_gallery_bot(api_key, bot_settings):
             comment_manager=playwright_manager,
         )
 
+        await bot.load_gallery_info()
         await bot.get_trending_topics()
         await bot.record_gallery_information()
 
