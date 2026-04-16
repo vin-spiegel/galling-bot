@@ -109,6 +109,38 @@ class DatabaseManager:
         except Exception as e:
             logging.error(f"데이터 저장 실패: {e}")
 
+    async def load_recent_contents(self, board_id, content_type, limit=10):
+        """
+        'data' 데이터베이스에서 봇이 최근 생성한 글/댓글 목록을 로드합니다.
+
+        :param board_id: 게시판 ID
+        :param content_type: 'article' 또는 'comment'
+        :param limit: 최대 개수
+        :return: 최신순으로 정렬된 content 문자열 리스트
+        """
+        if self.conn is None:
+            logging.error("데이터베이스 연결이 설정되지 않았습니다.")
+            return []
+
+        if self.db_type != "data":
+            logging.warning("최근 콘텐츠는 'data' 데이터베이스에서만 로드할 수 있습니다.")
+            return []
+
+        try:
+            cursor = await self.conn.cursor()
+            await cursor.execute('''
+                SELECT content
+                FROM generated_content
+                WHERE board_id = ? AND content_type = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (board_id, content_type, limit))
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
+        except Exception as e:
+            logging.error(f"최근 콘텐츠 로드 실패: {e}")
+            return []
+
     async def load_memory(self, board_id):
         """
         'memory' 데이터베이스에서 메모리를 로드합니다.

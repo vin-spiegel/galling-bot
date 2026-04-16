@@ -104,6 +104,28 @@ class DcApiManager:
             logging.error(f"문서 본문 조회 실패 ({document_id}): {e}")
         return None
 
+    async def get_document_with_comments(self, document_id, max_comments=20):
+        """본문 + 기존 댓글 목록을 가져옵니다."""
+        try:
+            doc = await self.api.document(board_id=self.board_id, document_id=document_id)
+            if not doc:
+                return None, []
+
+            comments = []
+            try:
+                async for c in doc.comments():
+                    if c.contents:
+                        comments.append({"author": c.author or "ㅇㅇ", "contents": c.contents})
+                    if len(comments) >= max_comments:
+                        break
+            except Exception as e:
+                logging.error(f"댓글 목록 조회 실패 ({document_id}): {e}")
+
+            return doc.contents or "", comments
+        except Exception as e:
+            logging.error(f"문서 조회 실패 ({document_id}): {e}")
+            return None, []
+
     async def get_gallery_info(self):
         """갤러리 이름/설명/키워드 메타데이터 조회"""
         url = f"https://gall.dcinside.com/board/lists/?id={self.board_id}"
@@ -135,14 +157,16 @@ class DcApiManager:
             logging.error(f"갤러리 정보 조회 실패: {e}")
             return {"id": self.board_id, "name": "", "description": "", "keywords": ""}
 
-    async def get_articles(self, num=20, recommend=False, with_contents=False):
+    async def get_articles(self, num=20, recommend=False, with_contents=False, with_comments=False, max_comments=10):
         """
         글 목록을 가져옵니다.
 
         :param num: 가져올 글 수
         :param recommend: True면 개념글만
         :param with_contents: True면 본문까지 함께 조회 (느림)
-        :return: list of dict {id, title, author, contents?}
+        :param with_comments: True면 댓글 목록도 함께 조회
+        :param max_comments: 글당 최대 댓글 수
+        :return: list of dict {id, title, author, contents?, comments?}
         """
         try:
             indexes = [a async for a in self.api.board(
@@ -155,13 +179,28 @@ class DcApiManager:
         results = []
         for idx in indexes:
             item = {"id": idx.id, "title": idx.title, "author": idx.author}
-            if with_contents:
+            if with_contents or with_comments:
                 try:
                     doc = await self.api.document(board_id=self.board_id, document_id=idx.id)
-                    item["contents"] = doc.contents if doc and doc.contents else ""
+                    if with_contents:
+                        item["contents"] = doc.contents if doc and doc.contents else ""
+                    if with_comments and doc:
+                        comments = []
+                        try:
+                            async for c in doc.comments():
+                                if c.contents:
+                                    comments.append({"author": c.author or "ㅇㅇ", "contents": c.contents})
+                                if len(comments) >= max_comments:
+                                    break
+                        except Exception as e:
+                            logging.error(f"댓글 목록 조회 실패 ({idx.id}): {e}")
+                        item["comments"] = comments
                 except Exception as e:
-                    logging.error(f"본문 조회 실패 ({idx.id}): {e}")
-                    item["contents"] = ""
+                    logging.error(f"본문/댓글 조회 실패 ({idx.id}): {e}")
+                    if with_contents:
+                        item["contents"] = ""
+                    if with_comments:
+                        item["comments"] = []
             results.append(item)
         return results
 
