@@ -17,18 +17,24 @@ def handle_exceptions(func):
 
 def sanitize_text(text):
     """
-    텍스트를 정리하여 원하지 않는 특수문자와 불필요한 공백을 제거합니다.
-    
+    텍스트를 정리합니다. 줄바꿈은 보존하고 연속된 공백/탭만 정리합니다.
+
     :param text: 원본 텍스트.
     :return: 정리된 텍스트.
     """
-    # 일반적인 구두점을 제외한 원하지 않는 특수문자와 " 제거
-    sanitized_text = re.sub(r'[^\w\s.,!?\'()]', '', text)
-    
-    # 공백, 줄바꿈, 탭 등을 단일 공백으로 정리
-    sanitized_text = re.sub(r'\s+', ' ', sanitized_text).strip()
-    
-    return sanitized_text
+    if not text:
+        return ""
+
+    # 연속된 공백/탭은 단일 공백으로 (줄바꿈은 건드리지 않음)
+    text = re.sub(r'[ \t]+', ' ', text)
+
+    # 3개 이상 연속된 줄바꿈은 2개로 압축 (문단 구분만 유지)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    # 각 줄 끝의 공백 제거
+    text = '\n'.join(line.rstrip() for line in text.split('\n'))
+
+    return text.strip()
 
 def clean_title(title):
     """
