@@ -18,18 +18,33 @@ class GptApiManager:
         self.model_name = model_name
         self.generation_config = generation_config or {}
 
-    async def generate_content(self, prompt, system=None):
+    async def generate_content(self, prompt, system=None, image_urls=None):
         """
         주어진 프롬프트로 콘텐츠를 생성합니다.
 
-        :param prompt: user 메시지
+        :param prompt: user 메시지 (텍스트)
         :param system: system 메시지 (페르소나, 컨텍스트 등). 없으면 기본값 사용.
+        :param image_urls: 이미지 URL 리스트 (data URL 또는 http URL). 멀티모달 지원 모델에서만 동작.
         :return: 생성된 콘텐츠 문자열, 실패 시 None
         """
         try:
+            if image_urls:
+                # 멀티모달 포맷 (OpenAI/OpenRouter 호환)
+                user_content = [{"type": "text", "text": prompt}]
+                for url in image_urls:
+                    if not url:
+                        continue
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": url},
+                    })
+                user_msg = {"role": "user", "content": user_content}
+            else:
+                user_msg = {"role": "user", "content": prompt}
+
             messages = [
                 {"role": "system", "content": system or "You are a helpful assistant."},
-                {"role": "user", "content": prompt},
+                user_msg,
             ]
             response = await self.client.chat.completions.create(
                 model=self.model_name,

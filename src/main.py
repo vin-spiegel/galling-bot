@@ -76,12 +76,18 @@ async def run_gallery_bot(api_key, bot_settings):
 
         async def comment_task():
             while True:
-                doc_info = await dc_api_manager.get_random_document_info()
+                # 이미 댓글 단 글 + 봇이 작성한 글 + 현재 작업 중인 글 제외
+                commented = await db_managers['data'].get_commented_doc_ids(bot.settings['board_id'])
+                written = await db_managers['data'].get_written_doc_ids(bot.settings['board_id'])
+                in_flight = set(bot._commenting_doc_ids)
+                exclude_ids = commented | written | in_flight
+
+                doc_info = await dc_api_manager.get_random_document_info(exclude_ids=exclude_ids)
                 if doc_info:
                     doc_id, document_title = doc_info
                     await bot.write_comment(doc_id, document_title)
                 else:
-                    logging.error("문서 ID나 제목을 가져오지 못했습니다.")
+                    logging.warning("댓글 달 만한 새 글 없음, 대기 후 재시도")
                 await asyncio.sleep(bot.settings['comment_interval'])
 
         await asyncio.gather(article_task(), comment_task())

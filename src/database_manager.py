@@ -109,6 +109,58 @@ class DatabaseManager:
         except Exception as e:
             logging.error(f"데이터 저장 실패: {e}")
 
+    async def get_commented_doc_ids(self, board_id, limit=500):
+        """
+        봇이 이미 댓글을 단 doc_id 집합을 반환합니다.
+
+        :param board_id: 게시판 ID
+        :param limit: 최근 N개까지 확인
+        :return: set of doc_id (string)
+        """
+        if self.conn is None or self.db_type != "data":
+            return set()
+
+        try:
+            cursor = await self.conn.cursor()
+            await cursor.execute('''
+                SELECT DISTINCT doc_id
+                FROM generated_content
+                WHERE board_id = ? AND content_type = 'comment'
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (board_id, limit))
+            rows = await cursor.fetchall()
+            return {str(row[0]) for row in rows if row[0]}
+        except Exception as e:
+            logging.error(f"댓글 이력 조회 실패: {e}")
+            return set()
+
+    async def get_written_doc_ids(self, board_id, limit=100):
+        """
+        봇이 작성한 글 doc_id 집합을 반환합니다.
+
+        :param board_id: 게시판 ID
+        :param limit: 최근 N개까지 확인
+        :return: set of doc_id (string)
+        """
+        if self.conn is None or self.db_type != "data":
+            return set()
+
+        try:
+            cursor = await self.conn.cursor()
+            await cursor.execute('''
+                SELECT DISTINCT doc_id
+                FROM generated_content
+                WHERE board_id = ? AND content_type = 'article'
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (board_id, limit))
+            rows = await cursor.fetchall()
+            return {str(row[0]) for row in rows if row[0]}
+        except Exception as e:
+            logging.error(f"작성글 이력 조회 실패: {e}")
+            return set()
+
     async def load_recent_contents(self, board_id, content_type, limit=10):
         """
         'data' 데이터베이스에서 봇이 최근 생성한 글/댓글 목록을 로드합니다.
