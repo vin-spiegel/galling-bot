@@ -5,7 +5,7 @@ from collections import Counter
 from utils import handle_exceptions, sanitize_text, clean_title
 
 class DcinsideBot:
-    def __init__(self, api_manager, db_managers, gpt_api_manager, persona, settings):
+    def __init__(self, api_manager, db_managers, gpt_api_manager, persona, settings, comment_manager=None):
         """
         DcinsideBot 클래스를 초기화합니다.
 
@@ -14,8 +14,10 @@ class DcinsideBot:
         :param gpt_api_manager: GPT API 관리 객체
         :param persona: 봇의 페르소나
         :param settings: 봇 설정
+        :param comment_manager: Playwright 기반 댓글 매니저 (있으면 우선 사용)
         """
         self.api_manager = api_manager
+        self.comment_manager = comment_manager
         self.crawling_db = db_managers['crawling']
         self.data_db = db_managers['data']
         self.memory_db = db_managers['memory']
@@ -181,10 +183,20 @@ class DcinsideBot:
                 logging.info(f"[댓글] 생성 완료 ({len(comment_content)}자): {comment_content[:50]}...")
                 logging.info(f"[댓글] DC 업로드 중... (doc_id: {document_id})")
 
-                comm_id = await self.api_manager.write_comment(
-                    document_id=document_id,
-                    content=comment_content
-                )
+                # Playwright 매니저가 있으면 사용, 없으면 dc_api로 폴백
+                if self.comment_manager:
+                    comm_id = await self.comment_manager.write_comment(
+                        document_id=document_id,
+                        content=comment_content
+                    )
+                else:
+                    comm_id = await self.api_manager.write_comment(
+                        document_id=document_id,
+                        content=comment_content
+                    )
+
+                if comm_id is None:
+                    raise ValueError("DC 댓글 업로드 실패 (comm_id: None)")
 
                 first_sentence = comment_content.split('\n')[0]
 

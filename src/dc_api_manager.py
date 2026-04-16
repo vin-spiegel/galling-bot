@@ -51,9 +51,24 @@ class DcApiManager:
                 password=self.password,
                 is_minor=is_minor
             )
+            # dc_api가 doc_id를 반환하지 않으므로 최신 글에서 조회
+            doc_id = await self._find_recent_doc_id(title)
             logging.info(f"문서 작성 성공 : {title}")
+            return doc_id
         except Exception as e:
             logging.error(f"문서 작성 실패 : {e}")
+            return None
+
+    async def _find_recent_doc_id(self, title):
+        """최근 글 목록에서 제목이 일치하는 글의 ID를 찾습니다."""
+        try:
+            articles = [article async for article in self.api.board(board_id=self.board_id, num=5)]
+            for article in articles:
+                if article.title == title:
+                    return article.id
+        except Exception as e:
+            logging.error(f"doc_id 조회 실패: {e}")
+        return None
 
     async def write_comment(self, document_id, content):
         """
@@ -74,7 +89,7 @@ class DcApiManager:
             logging.info(f"댓글 작성 성공 ({document_id}) : {content}")
             return comment_id
         except Exception as e:
-            logging.error(f"댓글 작성 실패 : {e}")
+            logging.error(f"댓글 작성 실패 ({document_id}): {type(e).__name__}: {e}")
             return None
 
     async def get_random_document_info(self):

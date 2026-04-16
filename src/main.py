@@ -6,6 +6,7 @@ from database_manager import DatabaseManager
 from bot import DcinsideBot
 from gpt_api_manager import GptApiManager
 from dc_api_manager import DcApiManager
+from playwright_comment_manager import PlaywrightCommentManager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -25,6 +26,14 @@ async def run_gallery_bot(api_key, bot_settings):
         password=bot_settings['password']
     )
 
+    # Playwright 기반 댓글 매니저 (dc_api는 현재 IP 차단 이슈로 댓글 불가)
+    playwright_manager = PlaywrightCommentManager(
+        board_id=bot_settings['board_id'],
+        username=bot_settings['username'],
+        password=bot_settings['password'],
+        headless=True,
+    )
+
     # DatabaseManager 객체 생성
     db_managers = {
         'crawling': DatabaseManager(f"data/{bot_settings['board_id']}_crawling.db", "crawling"),
@@ -39,13 +48,17 @@ async def run_gallery_bot(api_key, bot_settings):
         # GptApiManager 객체 생성 (ChatGPT 사용)
         gpt_api_manager = GptApiManager(api_key=api_key, base_url=API_BASE_URL)
 
+        # Playwright 브라우저 시작
+        await playwright_manager.start()
+
         # DcinsideBot 객체 생성
         bot = DcinsideBot(
             api_manager=dc_api_manager,
             db_managers=db_managers,
             gpt_api_manager=gpt_api_manager,
             persona=bot_settings['persona'],
-            settings=bot_settings
+            settings=bot_settings,
+            comment_manager=playwright_manager,
         )
 
         await bot.get_trending_topics()
@@ -81,6 +94,7 @@ async def run_gallery_bot(api_key, bot_settings):
     finally:
         await asyncio.gather(*[db_manager.close() for db_manager in db_managers.values()])
         await dc_api_manager.close()  # 세션 명시적으로 종료
+        await playwright_manager.close()
 
 async def main():
     current_api_key_index = 0
