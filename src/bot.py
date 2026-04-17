@@ -263,7 +263,8 @@ class DcinsideBot:
                     board_id=self.board_id
                 )
 
-                logging.info(f"{tag} 성공 https://gall.dcinside.com/board/view/?id={self.board_id}&no={doc_id}")
+                prefix = "mgallery/board" if self.settings.get('is_minor') else "board"
+                logging.info(f"{tag} 성공 https://gall.dcinside.com/{prefix}/view/?id={self.board_id}&no={doc_id}")
                 return doc_id, title
             except Exception as e:
                 logging.error(f"{tag} 실패 (시도 {attempt + 1}/{max_retries}): {e}")
@@ -388,7 +389,8 @@ class DcinsideBot:
                     board_id=self.board_id
                 )
 
-                logging.info(f"{tag} 성공 https://gall.dcinside.com/board/view/?id={self.board_id}&no={document_id}")
+                prefix = "mgallery/board" if self.settings.get('is_minor') else "board"
+                logging.info(f"{tag} 성공 https://gall.dcinside.com/{prefix}/view/?id={self.board_id}&no={document_id}")
                 return True
             except Exception as e:
                 logging.error(f"{tag} 실패 (시도 {attempt + 1}/{max_retries}): {e}")

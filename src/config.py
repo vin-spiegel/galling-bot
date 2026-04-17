@@ -40,5 +40,6 @@ DEFAULT_BOT_SETTINGS = {
     'username': os.getenv('BOT_USERNAME'),
     'password': os.getenv('BOT_PASSWORD'),
     'persona': os.getenv('BOT_PERSONA'),
-    'board_id': os.getenv('BOT_BOARD_ID', 'yjrs')
+    'board_id': os.getenv('BOT_BOARD_ID', 'yjrs'),
+    'is_minor': os.getenv('BOT_IS_MINOR', 'False') == 'True',
 }

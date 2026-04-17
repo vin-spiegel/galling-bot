@@ -23,7 +23,8 @@ async def run_gallery_bot(api_key, bot_settings):
     dc_api_manager = DcApiManager(
         board_id=bot_settings['board_id'],
         username=bot_settings['username'],
-        password=bot_settings['password']
+        password=bot_settings['password'],
+        is_minor=bot_settings.get('is_minor', False),
     )
 
     # Playwright 기반 댓글 매니저 (dc_api는 현재 IP 차단 이슈로 댓글 불가)
@@ -32,6 +33,7 @@ async def run_gallery_bot(api_key, bot_settings):
         username=bot_settings['username'],
         password=bot_settings['password'],
         headless=True,
+        is_minor=bot_settings.get('is_minor', False),
     )
 
     # DatabaseManager 객체 생성

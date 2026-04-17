@@ -15,11 +15,12 @@ class PlaywrightCommentManager:
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     )
 
-    def __init__(self, board_id, username, password, headless=True):
+    def __init__(self, board_id, username, password, headless=True, is_minor=False):
         self.board_id = board_id
         self.username = username
         self.password = password
         self.headless = headless
+        self.is_minor = is_minor
 
         self._stealth_ctx = None
         self._playwright = None
@@ -89,7 +90,8 @@ class PlaywrightCommentManager:
 
                 page.on("response", handle_response)
 
-                view_url = f"https://gall.dcinside.com/board/view/?id={self.board_id}&no={document_id}"
+                prefix = "mgallery/board" if self.is_minor else "board"
+                view_url = f"https://gall.dcinside.com/{prefix}/view/?id={self.board_id}&no={document_id}"
                 await page.goto(view_url, wait_until="domcontentloaded", timeout=20000)
 
                 # 사람처럼 스크롤

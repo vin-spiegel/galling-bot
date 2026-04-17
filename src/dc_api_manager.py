@@ -9,18 +9,25 @@ DESKTOP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36"
 }
 
+
+def _gallery_url_prefix(is_minor):
+    """갤러리 유형에 따른 URL prefix"""
+    return "mgallery/board" if is_minor else "board"
+
 class DcApiManager:
-    def __init__(self, board_id, username, password):
+    def __init__(self, board_id, username, password, is_minor=False):
         """
         DcApiManager 클래스를 초기화합니다.
 
         :param board_id: 게시판 ID
         :param username: 사용자 이름
         :param password: 사용자 비밀번호
+        :param is_minor: 마이너 갤러리 여부
         """
         self.board_id = board_id
         self.username = username
         self.password = password
+        self.is_minor = is_minor
         self.api = dc_api.API()
 
     async def start(self):
@@ -40,15 +47,17 @@ class DcApiManager:
         except Exception as e:
             logging.error(f"API 세션 종료 실패: {e}")
 
-    async def write_document(self, title, content, is_minor=False):
+    async def write_document(self, title, content, is_minor=None):
         """
         문서를 게시합니다.
 
         :param title: 문서 제목
         :param content: 문서 내용
-        :param is_minor: 부가적인 설정 (기본값: False)
-        :return: None
+        :param is_minor: 명시적 override. None이면 self.is_minor 사용
+        :return: doc_id 또는 None
         """
+        if is_minor is None:
+            is_minor = self.is_minor
         try:
             await self.api.write_document(
                 board_id=self.board_id,
@@ -116,7 +125,8 @@ class DcApiManager:
 
         :return: dict {contents: str, images: [url, ...]}
         """
-        url = f"https://gall.dcinside.com/board/view/?id={self.board_id}&no={document_id}"
+        prefix = _gallery_url_prefix(self.is_minor)
+        url = f"https://gall.dcinside.com/{prefix}/view/?id={self.board_id}&no={document_id}"
         try:
             async with aiohttp.ClientSession(headers=DESKTOP_HEADERS) as session:
                 async with session.get(url) as res:
@@ -200,7 +210,8 @@ class DcApiManager:
 
     async def get_gallery_info(self):
         """갤러리 이름/설명/키워드 메타데이터 조회"""
-        url = f"https://gall.dcinside.com/board/lists/?id={self.board_id}"
+        prefix = _gallery_url_prefix(self.is_minor)
+        url = f"https://gall.dcinside.com/{prefix}/lists/?id={self.board_id}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36"
         }
