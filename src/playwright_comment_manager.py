@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
@@ -41,6 +42,7 @@ class PlaywrightCommentManager:
             user_agent=self.USER_AGENT,
             locale="ko-KR",
             viewport={"width": 1280, "height": 800},
+            permissions=["clipboard-read", "clipboard-write"],
         )
         self._started = True
         logging.info("[Playwright] 브라우저 초기화 완료")
@@ -141,6 +143,103 @@ class PlaywrightCommentManager:
 
             except Exception as e:
                 logging.error(f"[Playwright] 댓글 작성 예외: {type(e).__name__}: {e}")
+                return None
+            finally:
+                if page:
+                    try:
+                        await page.close()
+                    except Exception:
+                        pass
+
+    async def write_article(self, title, content):
+        """
+        Playwright로 글 작성. URL은 paste로 넣어서 OG 카드 자동 생성.
+        성공 시 doc_id(str) 반환, 실패 시 None.
+        """
+        async with self._lock:
+            await self._ensure_started()
+
+            page = None
+            try:
+                page = await self._context.new_page()
+
+                prefix = "mgallery/board" if self.is_minor else "board"
+                write_url = f"https://gall.dcinside.com/{prefix}/write/?id={self.board_id}"
+                await page.goto(write_url, wait_until="domcontentloaded", timeout=20000)
+                await page.wait_for_timeout(2000)
+
+                # 닉네임 입력 (display:none이면 보이게)
+                name_input = page.locator("input#name")
+                await name_input.evaluate(
+                    "el => el.style.display = 'block'"
+                )
+                await name_input.fill("")
+                await name_input.type(self.username, delay=80)
+                await page.wait_for_timeout(300)
+
+                # 비밀번호 입력
+                await page.locator("input#password").type(
+                    self.password, delay=80
+                )
+                await page.wait_for_timeout(300)
+
+                # 제목 입력
+                await page.locator("input#subject").type(title, delay=50)
+                await page.wait_for_timeout(500)
+
+                # 에디터에 본문 입력 (URL은 paste로)
+                editor = page.locator("div.note-editable")
+                await editor.click()
+                await page.wait_for_timeout(300)
+
+                lines = content.split("\n")
+                for i, line in enumerate(lines):
+                    stripped = line.strip()
+                    if re.match(r'^https?://\S+$', stripped):
+                        # URL 줄: paste 이벤트로 OG 카드 트리거
+                        await page.evaluate("""(url) => {
+                            const editor = document.querySelector('div.note-editable');
+                            editor.focus();
+                            const dt = new DataTransfer();
+                            dt.setData('text/plain', url);
+                            const evt = new ClipboardEvent('paste', {
+                                clipboardData: dt,
+                                bubbles: true,
+                                cancelable: true,
+                            });
+                            editor.dispatchEvent(evt);
+                        }""", stripped)
+                        await page.wait_for_timeout(3000)  # OG 카드 생성 대기
+                    elif stripped:
+                        await editor.press_sequentially(stripped, delay=30)
+
+                    # 줄바꿈 (마지막 줄 제외)
+                    if i < len(lines) - 1:
+                        await page.keyboard.press("Enter")
+                        await page.wait_for_timeout(200)
+
+                await page.wait_for_timeout(1000)
+
+                # 등록 버튼 클릭
+                await page.locator("button.btn_blue.btn_svc.write").click()
+
+                # 페이지 이동 대기 (글 작성 성공 시 view 페이지로 리다이렉트)
+                try:
+                    await page.wait_for_url(
+                        re.compile(r"view/\?id="), timeout=10000
+                    )
+                    # URL에서 doc_id 추출
+                    url = page.url
+                    match = re.search(r"[&?]no=(\d+)", url)
+                    doc_id = match.group(1) if match else None
+                    return doc_id
+                except Exception:
+                    # alert 처리
+                    logging.error("[Playwright] 글 작성 후 리다이렉트 실패")
+                    return None
+
+            except Exception as e:
+                logging.error(f"[Playwright] 글 작성 예외: {type(e).__name__}: {e}")
                 return None
             finally:
                 if page:
