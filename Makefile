@@ -8,7 +8,7 @@ else
 	PYTHON = $(VENV)/bin/python
 endif
 
-.PHONY: install run setup playwright clean
+.PHONY: install run once setup playwright clean
 
 setup: ## 가상환경 생성 + 의존성 + Playwright 설치
 	py -m venv $(VENV) || python3 -m venv $(VENV)
@@ -23,8 +23,11 @@ install: ## 의존성만 설치
 playwright: ## Playwright 브라우저 설치
 	$(PYTHON) -m playwright install chromium
 
-run: ## 봇 실행
+run: ## 봇 실행 (무한루프)
 	$(PYTHON) src/main.py
+
+once: ## 1회 실행 (글 1개 + 댓글 N개 → 종료)
+	$(PYTHON) src/run_once.py
 
 clean: ## 가상환경 삭제
 	rm -rf $(VENV)

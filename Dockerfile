@@ -13,4 +13,4 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 COPY . .
 
-CMD ["xvfb-run", "--auto-servernum", "python", "src/main.py"]
+CMD ["xvfb-run", "--auto-servernum", "python", "src/run_once.py"]
