@@ -16,6 +16,7 @@ galling-bot/
 # IDE specific files
 .idea/
 .vscode/
+.claude/
 
 # Environment variables
 .env
