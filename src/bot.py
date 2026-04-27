@@ -137,7 +137,7 @@ class DcinsideBot:
             )
 
         fewshot = sample_successful_posts_section(
-            self.successful_posts, self.fewshot_sample_size
+            self.successful_posts, self.fewshot_sample_size, board_id=self.board_id
         )
         if fewshot:
             parts.append(

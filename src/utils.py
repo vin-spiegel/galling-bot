@@ -52,11 +52,33 @@ def clean_title(title):
     return title
 
 
+def _parse_frontmatter(raw):
+    """
+    YAML frontmatter 파싱. --- ... --- 블록에서 key: value 추출.
+    반환: (metadata dict, 본문 문자열)
+    """
+    meta = {}
+    body = raw
+    if raw.startswith("---"):
+        parts = raw.split("---", 2)
+        if len(parts) >= 3:
+            for line in parts[1].strip().splitlines():
+                if ":" in line:
+                    key, val = line.split(":", 1)
+                    meta[key.strip()] = val.strip()
+            body = parts[2].strip()
+    return meta, body
+
+
 def load_successful_posts(directory):
     """
-    docs/successful_posts/ 같은 폴더에서 .md 파일을 모두 읽어 (title, body) 튜플 리스트로 반환.
+    docs/successful_posts/ 폴더에서 .md 파일을 모두 읽어
+    (title, body, gal) 튜플 리스트로 반환.
 
     파일 형식:
+        ---
+        gal: yjrs        # 생략 시 모든 갤에 공통
+        ---
         # 제목
         본문...
 
@@ -82,30 +104,43 @@ def load_successful_posts(directory):
         if not raw:
             continue
 
-        title, body = "", raw
-        for line in raw.splitlines():
+        meta, content = _parse_frontmatter(raw)
+        gal = meta.get("gal", "")
+
+        title, body = "", content
+        for line in content.splitlines():
             stripped = line.strip()
             if stripped.startswith("# "):
                 title = stripped[2:].strip()
-                body = raw.split(line, 1)[1].strip()
+                body = content.split(line, 1)[1].strip()
                 break
 
         if not title and not body:
             continue
-        posts.append((title, body))
+        posts.append((title, body, gal))
 
     return posts
 
 
-def sample_successful_posts_section(posts, sample_size):
+def sample_successful_posts_section(posts, sample_size, board_id=None):
     """
-    성공 사례 리스트에서 sample_size개 무작위 샘플링하여 시스템 프롬프트 섹션 문자열 반환.
-    빈 리스트나 sample_size <= 0 이면 빈 문자열.
+    성공 사례 리스트에서 board_id에 맞는 것만 필터 후
+    sample_size개 무작위 샘플링하여 시스템 프롬프트 섹션 문자열 반환.
+
+    gal이 비어있는 사례는 모든 갤에 공통으로 포함.
     """
     if not posts or sample_size <= 0:
         return ""
 
-    sample = random.sample(posts, min(sample_size, len(posts)))
+    filtered = [
+        (t, b) for t, b, g in posts
+        if not g or not board_id or g == board_id
+    ]
+
+    if not filtered:
+        return ""
+
+    sample = random.sample(filtered, min(sample_size, len(filtered)))
     blocks = []
     for title, body in sample:
         block = ""
