@@ -32,7 +32,7 @@ async def run_gallery_bot(api_key, bot_settings):
         board_id=bot_settings['board_id'],
         username=bot_settings['username'],
         password=bot_settings['password'],
-        headless=True,
+        headless=False,
         is_minor=bot_settings.get('is_minor', False),
     )
 
