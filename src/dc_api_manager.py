@@ -1,6 +1,8 @@
 import logging
 import random
+import re
 import base64
+from urllib.parse import urlparse
 import aiohttp
 import lxml.html
 import dc_api
@@ -239,6 +241,80 @@ class DcApiManager:
         except Exception as e:
             logging.error(f"갤러리 정보 조회 실패: {e}")
             return {"id": self.board_id, "name": "", "description": "", "keywords": ""}
+
+    async def fetch_og_card_html(self, url):
+        """
+        URL에서 OG 메타태그를 긁어 디시인사이드 OG 카드 HTML을 생성.
+        실패 시 None 반환.
+        """
+        try:
+            async with aiohttp.ClientSession(headers=DESKTOP_HEADERS) as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as res:
+                    if res.status != 200:
+                        return None
+                    html = await res.text()
+
+            parsed = lxml.html.fromstring(html)
+
+            def og(prop):
+                r = parsed.xpath(f"//meta[@property='og:{prop}']/@content")
+                return r[0].strip() if r else ""
+
+            title = og("title")
+            desc = og("description")
+            image = og("image")
+            domain = urlparse(url).hostname or ""
+
+            if not title:
+                return None
+
+            return (
+                f'<div class="og-div" style="margin-top:5px">'
+                f'<a href="{url}" target="_blank" class="og-wrap" '
+                f'style="display:inline-block;width:70%;height:105px;background:#fff;'
+                f'border:1px solid #dfe1ee;box-sizing:border-box;letter-spacing:-1px;'
+                f'overflow:hidden;line-height:1.5">'
+                f'<div class="og-img" style="float:left;width:104px;height:100%;'
+                f'box-sizing:border-box;border-right:1px solid #dfe1ee;" '
+                f'data-img="{image}">'
+                f'<img class="og-img" referrerpolicy="no-referrer" src="{image}" alt="" '
+                f'style="width:100%!important;height:100%!important;'
+                f'object-fit:cover;object-position:center center" fetchpriority="high">'
+                f'</div>'
+                f'<div class="og-info" style="float:right;width:calc(100% - 104px);'
+                f'height:100%;box-sizing:border-box;padding:12px">'
+                f'<div class="og-inr" style="display:inline-block;max-width:100%;'
+                f'text-overflow:ellipsis;white-space:nowrap;overflow:hidden;'
+                f'font-size:14px;font-weight:bold">'
+                f'<strong class="og-tit" style="display:inline-block;max-width:100%;'
+                f'font-size:14px;vertical-align:top;padding-right:1px;'
+                f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+                f'{title}</strong></div>'
+                f'<p class="og-txt" style="width:100%;white-space:nowrap;overflow:hidden;'
+                f'text-overflow:ellipsis;color:#000;margin:2px 0 11px">{desc}</p>'
+                f'<p class="og-lnk" style="width:100%;white-space:nowrap;overflow:hidden;'
+                f'text-overflow:ellipsis;color:#3b4890">{domain}</p>'
+                f'</div></a></div>'
+            )
+        except Exception as e:
+            logging.error(f"OG 카드 생성 실패 ({url}): {e}")
+            return None
+
+    async def replace_urls_with_og_cards(self, content):
+        """
+        본문에서 독립된 줄의 URL을 찾아 OG 카드 HTML로 교체.
+        """
+        lines = content.split("\n")
+        result = []
+        for line in lines:
+            stripped = line.strip()
+            if re.match(r'^https?://\S+$', stripped):
+                og_html = await self.fetch_og_card_html(stripped)
+                if og_html:
+                    result.append(og_html)
+                    continue
+            result.append(line)
+        return "\n".join(result)
 
     async def get_articles(self, num=20, recommend=False, with_contents=False, with_comments=False, with_images=False, max_comments=10, max_images=2):
         """

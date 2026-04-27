@@ -276,6 +276,9 @@ class DcinsideBot:
                 content = sanitize_text(content_raw).strip()
                 logging.info(f"{tag} 내용 생성 완료 ({len(content)}자)")
 
+                # 2.5단계: URL → OG 카드 HTML 변환
+                content = await self.api_manager.replace_urls_with_og_cards(content)
+
                 # 3단계: DC에 글 작성
                 logging.info(f"{tag} DC 업로드 중... 제목: {title}")
                 doc_id = await self.api_manager.write_document(
