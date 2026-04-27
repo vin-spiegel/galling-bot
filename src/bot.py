@@ -3,7 +3,13 @@ import asyncio
 import time
 import uuid
 from collections import Counter
-from utils import handle_exceptions, sanitize_text, clean_title
+from utils import (
+    handle_exceptions,
+    sanitize_text,
+    clean_title,
+    load_successful_posts,
+    sample_successful_posts_section,
+)
 from dc_style_guide import get_style_section
 
 
@@ -38,6 +44,16 @@ class DcinsideBot:
         self.password = settings['password']
         self.gallery_info = None  # lazy load
         self._commenting_doc_ids = set()  # 지금 댓글 작성 중인 doc_id (동시성 방어)
+
+        # 성공 사례 few-shot 로드 (시작 시 1회)
+        self.fewshot_sample_size = settings.get('fewshot_sample_size', 0)
+        fewshot_dir = settings.get('fewshot_dir')
+        self.successful_posts = load_successful_posts(fewshot_dir) if fewshot_dir else []
+        if self.successful_posts:
+            logging.info(
+                f"[few-shot] 성공 사례 {len(self.successful_posts)}개 로드 "
+                f"(샘플 {self.fewshot_sample_size}개씩 주입)"
+            )
 
     @handle_exceptions
     async def get_trending_topics(self):
@@ -118,6 +134,15 @@ class DcinsideBot:
             recent_lines = "\n".join(f"- {t}" for t in recent_my_articles)
             parts.append(
                 f"\n# 내가 최근에 쓴 글 (절대 비슷한 주제/표현 반복 금지)\n{recent_lines}"
+            )
+
+        fewshot = sample_successful_posts_section(
+            self.successful_posts, self.fewshot_sample_size
+        )
+        if fewshot:
+            parts.append(
+                "\n# 참고할 성공 사례 (반응 좋았던 글들 — 톤/구조/길이 참고용, 그대로 복사 금지)\n"
+                + fewshot
             )
 
         return "\n".join(parts)

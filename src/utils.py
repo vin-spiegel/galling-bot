@@ -1,4 +1,6 @@
 import logging
+import os
+import random
 import re
 
 def handle_exceptions(func):
@@ -46,5 +48,70 @@ def clean_title(title):
     # "제목 "으로 시작하면 이를 제거
     if title.startswith("제목 "):
         title = title[len("제목 "):]
-    
+
     return title
+
+
+def load_successful_posts(directory):
+    """
+    docs/successful_posts/ 같은 폴더에서 .md 파일을 모두 읽어 (title, body) 튜플 리스트로 반환.
+
+    파일 형식:
+        # 제목
+        본문...
+
+    README.md는 자동 제외.
+    """
+    if not directory or not os.path.isdir(directory):
+        return []
+
+    posts = []
+    for name in sorted(os.listdir(directory)):
+        if not name.lower().endswith(".md"):
+            continue
+        if name.lower() == "readme.md":
+            continue
+        path = os.path.join(directory, name)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                raw = f.read().strip()
+        except OSError as e:
+            logging.warning(f"성공 사례 로드 실패 ({path}): {e}")
+            continue
+
+        if not raw:
+            continue
+
+        title, body = "", raw
+        for line in raw.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# "):
+                title = stripped[2:].strip()
+                body = raw.split(line, 1)[1].strip()
+                break
+
+        if not title and not body:
+            continue
+        posts.append((title, body))
+
+    return posts
+
+
+def sample_successful_posts_section(posts, sample_size):
+    """
+    성공 사례 리스트에서 sample_size개 무작위 샘플링하여 시스템 프롬프트 섹션 문자열 반환.
+    빈 리스트나 sample_size <= 0 이면 빈 문자열.
+    """
+    if not posts or sample_size <= 0:
+        return ""
+
+    sample = random.sample(posts, min(sample_size, len(posts)))
+    blocks = []
+    for title, body in sample:
+        block = ""
+        if title:
+            block += f"## {title}\n"
+        if body:
+            block += body
+        blocks.append(block.strip())
+    return "\n\n---\n\n".join(blocks)

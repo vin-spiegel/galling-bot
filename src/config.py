@@ -42,4 +42,6 @@ DEFAULT_BOT_SETTINGS = {
     'persona': os.getenv('BOT_PERSONA'),
     'board_id': os.getenv('BOT_BOARD_ID', 'yjrs'),
     'is_minor': os.getenv('BOT_IS_MINOR', 'False') == 'True',
+    'fewshot_dir': os.getenv('BOT_FEWSHOT_DIR', 'docs/successful_posts'),
+    'fewshot_sample_size': int(os.getenv('BOT_FEWSHOT_SAMPLE_SIZE', '3')),
 }
