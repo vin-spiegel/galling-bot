@@ -37,7 +37,11 @@ class PlaywrightCommentManager:
 
         self._stealth_ctx = Stealth().use_async(async_playwright())
         self._playwright = await self._stealth_ctx.__aenter__()
-        self._browser = await self._playwright.chromium.launch(headless=self.headless)
+        launch_args = ["--headless=new"] if self.headless else []
+        self._browser = await self._playwright.chromium.launch(
+            headless=self.headless if isinstance(self.headless, bool) else False,
+            args=launch_args if self.headless else [],
+        )
         self._context = await self._browser.new_context(
             user_agent=self.USER_AGENT,
             locale="ko-KR",
