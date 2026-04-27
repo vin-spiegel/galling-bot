@@ -32,7 +32,7 @@ async def run_gallery_bot(api_key, bot_settings):
         board_id=bot_settings['board_id'],
         username=bot_settings['username'],
         password=bot_settings['password'],
-        headless=True,
+        headless=False,  # 디버깅용 (브라우저 화면 표시)
         is_minor=bot_settings.get('is_minor', False),
     )
 
