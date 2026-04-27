@@ -2,7 +2,7 @@ FROM python:3.13-slim
 
 # xvfb + Playwright 시스템 의존성
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends xvfb && \
+    apt-get install -y --no-install-recommends xvfb xauth && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
