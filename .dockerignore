@@ -1,0 +1,10 @@
+galling-bot/
+__pycache__/
+*.pyc
+.env
+.claude/
+.git/
+.idea/
+.vscode/
+data/
+*.log
