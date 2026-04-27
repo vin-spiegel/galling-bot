@@ -1,5 +1,7 @@
 FROM python:3.13-slim
 
+ENV PYTHONUNBUFFERED=1
+
 # xvfb + Playwright 시스템 의존성
 RUN apt-get update && \
     apt-get install -y --no-install-recommends xvfb xauth && \
@@ -13,4 +15,4 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 COPY . .
 
-CMD ["xvfb-run", "--auto-servernum", "python", "src/run_once.py"]
+CMD ["xvfb-run", "--auto-servernum", "python", "-u", "src/run_once.py"]
