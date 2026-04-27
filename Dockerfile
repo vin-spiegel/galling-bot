@@ -15,4 +15,4 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 COPY . .
 
-CMD ["python", "-u", "-c", "print('hello from railway'); import sys; sys.stdout.flush()"]
+CMD ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1280x800x24", "python", "-u", "src/run_once.py"]
